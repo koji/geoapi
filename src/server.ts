@@ -1,15 +1,16 @@
 import http from 'http'
-import express from 'express'
+import express, { Response, Request, NextFunction} from 'express'
 import cors from 'cors'
-import bunyan from 'bunyan'
+import {createLogger, LoggerOptions } from 'bunyan'
 import geoip from 'geoip-lite'
 import config from './config'
 
-const log = bunyan.createLogger(config.logger.options)
-const app = express()
-const server = http.Server(app)
 
-export default async function startServer(portToListenOn=config.server.port) {
+const log = createLogger(config.logger.options as LoggerOptions)
+const app = express()
+const server = new http.Server(app)
+
+const startServer = async(portToListenOn=config.server.port) => {
   return await new Promise((resolve, reject) => {
     try {
       app.disable('x-powered-by')
@@ -18,22 +19,23 @@ export default async function startServer(portToListenOn=config.server.port) {
       app.set('trust proxy', 1)
       app.use(cors())
 
-      app.get('/me', function meRoute(req, res) {
+      app.get('/me', function meRoute(req: Request, res: Response) {
         // https://devcenter.heroku.com/articles/http-routing#heroku-headers
-        const realClientIpAddress = (req.headers['x-forwarded-for'] || req.ip || "").split(',')
+        const realClientIpAddress = ((req.headers['x-forwarded-for'] || req.ip || "") as string).split(',')
         const ip = realClientIpAddress[realClientIpAddress.length - 1]
+        console.log(ip)
         res.json({ ip, ...geoip.lookup(ip) })
       })
 
-      app.get('/:ip', function ipRoute(req, res) {
+      app.get('/:ip', function ipRoute(req: Request, res: Response) {
         res.json({ ip: req.params.ip, ...geoip.lookup(req.params.ip) })
       })
 
-      app.all('*', function fallbackRoute(req, res) {
+      app.all('*', function fallbackRoute(req: Request, res: Response) {
         res.redirect('/me')
       })
 
-      app.use(function expressErrorHandler(err, req, res, next) {
+      app.use(function expressErrorHandler(err: Error, req: Request, res: Response, next: NextFunction) {
         log.error('Express error handling', err)
         res.sendStatus(500)
       })
@@ -49,3 +51,5 @@ export default async function startServer(portToListenOn=config.server.port) {
     }
   })
 }
+
+export default startServer;

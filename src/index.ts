@@ -1,6 +1,6 @@
 import startServer from './server'
 
-;(async function() {
+;(async() => {
   try {
     await startServer()
   } catch(err) {
